@@ -2,10 +2,12 @@
  * Integration tests for all PM Copilot MCP tools.
  *
  * These tests call live APIs using real credentials from environment variables.
- * Run with: npm test
+ * Each integration group auto-skips when its required credentials are missing.
  *
- * Google Workspace tests are skipped when GOOGLE_REFRESH_TOKEN is not configured.
- * slack_post_message is tested with a dry-run assertion (no actual message posted).
+ * Run with env vars set:
+ *   SLACK_BOT_TOKEN=... SLACK_USER_TOKEN=... npm test
+ *
+ * Or create a .env file and use dotenv, or pass them from your MCP config.
  */
 
 import { slackGetMyMentions, slackGetThread, slackSearchMessages, slackPostMessage } from '../src/tools/slack';
@@ -22,9 +24,20 @@ function expectSuccess(result: string) {
   expect(result).not.toMatch(/^Error:/);
 }
 
+function hasValue(val: string): boolean {
+  return !!val && !val.startsWith('YOUR');
+}
+
+const slackConfigured = hasValue(config.slack.botToken) && hasValue(config.slack.userToken);
+const jiraConfigured = hasValue(config.jira.email) && hasValue(config.jira.apiToken);
+const githubConfigured = hasValue(config.github.token);
+const googleConfigured = hasValue(config.google.refreshToken);
+
 // ─── Slack ───────────────────────────────────────────────────
 
-describe('Slack Tools', () => {
+const describeSlack = slackConfigured ? describe : describe.skip;
+
+describeSlack('Slack Tools', () => {
   test('slack_get_my_mentions returns results', async () => {
     const result = await slackGetMyMentions({ limit: 3 });
     expectSuccess(result);
@@ -50,7 +63,9 @@ describe('Slack Tools', () => {
 
 // ─── Jira ────────────────────────────────────────────────────
 
-describe('Jira Tools', () => {
+const describeJira = jiraConfigured ? describe : describe.skip;
+
+describeJira('Jira Tools', () => {
   test('jira_search_issues returns results for text search', async () => {
     const result = await jiraSearchIssues({ query: 'artifactory', limit: 3 });
     expectSuccess(result);
@@ -82,7 +97,7 @@ describe('Jira Tools', () => {
   });
 });
 
-// ─── JFrog Docs ──────────────────────────────────────────────
+// ─── JFrog Docs (no credentials needed) ─────────────────────
 
 describe('JFrog Docs Tools', () => {
   test('docs_search returns matching pages for known topic', async () => {
@@ -106,7 +121,9 @@ describe('JFrog Docs Tools', () => {
 
 // ─── GitHub Enterprise (Codebase) ────────────────────────────
 
-describe('GitHub Enterprise Tools', () => {
+const describeGithub = githubConfigured ? describe : describe.skip;
+
+describeGithub('GitHub Enterprise Tools', () => {
   test('code_search finds results in the Artifactory repo', async () => {
     const result = await codeSearch({ query: 'RemoteRepo', limit: 3 });
     expectSuccess(result);
@@ -128,45 +145,60 @@ describe('GitHub Enterprise Tools', () => {
 
 // ─── Google Workspace ────────────────────────────────────────
 
-const googleConfigured = config.google.refreshToken && !config.google.refreshToken.startsWith('YOUR');
+const describeGoogle = googleConfigured ? describe : describe.skip;
 
 describe('Google Workspace Tools', () => {
-
-  const skipOrRun = googleConfigured ? test : test.skip;
-
   test('gdocs_read returns config error when not configured', async () => {
     if (googleConfigured) return;
     const result = await gdocsRead({ document_id: 'fake-doc-id' });
     expect(result).toContain('not configured');
   });
+});
 
-  skipOrRun('gdocs_read can read a document', async () => {
+describeGoogle('Google Workspace Tools (live)', () => {
+  test('gdocs_read can read a document', async () => {
     const result = await gdocsRead({ document_id: 'test-doc-id' });
     expectSuccess(result);
   });
 
-  skipOrRun('gsheets_read can read a spreadsheet', async () => {
+  test('gsheets_read can read a spreadsheet', async () => {
     const result = await gsheetsRead({ spreadsheet_id: 'test-sheet-id' });
     expectSuccess(result);
   });
 
-  skipOrRun('gslides_read can read a presentation', async () => {
+  test('gslides_read can read a presentation', async () => {
     const result = await gslidesRead({ presentation_id: 'test-slides-id' });
     expectSuccess(result);
   });
 
-  skipOrRun('gdrive_search finds files', async () => {
+  test('gdrive_search finds files', async () => {
     const result = await gdriveSearch({ query: 'artifactory', limit: 3 });
     expectSuccess(result);
   });
 
-  skipOrRun('gdrive_get_file reads a file', async () => {
+  test('gdrive_get_file reads a file', async () => {
     const result = await gdriveGetFile({ file_id: 'test-file-id' });
     expectSuccess(result);
   });
 
-  skipOrRun('gcal_get_events returns calendar events', async () => {
+  test('gcal_get_events returns calendar events', async () => {
     const result = await gcalGetEvents({ days_back: 1, days_ahead: 1, limit: 5 });
     expectSuccess(result);
+  });
+});
+
+// ─── Summary ─────────────────────────────────────────────────
+
+describe('Configuration Check', () => {
+  test('reports which integrations are configured', () => {
+    const status = [
+      `Slack: ${slackConfigured ? 'configured' : 'SKIPPED (missing tokens)'}`,
+      `Jira: ${jiraConfigured ? 'configured' : 'SKIPPED (missing tokens)'}`,
+      `GitHub: ${githubConfigured ? 'configured' : 'SKIPPED (missing token)'}`,
+      `Google: ${googleConfigured ? 'configured' : 'SKIPPED (missing token)'}`,
+      `Docs: always runs (no credentials needed)`,
+    ];
+    console.log('\n  Integration status:\n  ' + status.join('\n  ') + '\n');
+    expect(true).toBe(true);
   });
 });
