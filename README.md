@@ -92,7 +92,7 @@ A Slack app named **PM Copilot** already exists in the JFrog workspace. You do *
 `channels:history`, `channels:read`, `chat:write`, `groups:history`, `groups:read`, `im:history`, `im:read`, `mpim:history`, `mpim:read`, `users:read`
 
 **User Token Scopes** (already configured):
-`search:read`, `channels:history`
+`search:read`, `channels:history`, `groups:history`
 
 ### 3. Jira API Token (per user)
 
