@@ -69,7 +69,7 @@ MCP server that gives Cursor's AI access to Slack, Jira, JFrog documentation, th
 ### 1. Clone and Install
 
 ```bash
-git clone https://github.jfrog.info/galzi/pm-copilot.git
+git clone https://github.com/galzil1/pm-copilot.git
 cd pm-copilot
 npm install
 npm run build
