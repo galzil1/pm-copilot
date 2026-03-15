@@ -18,6 +18,7 @@ import {
   jiraSearchIssues,
   jiraGetIssue,
   jiraGetIssueComments,
+  jiraCreateIssue,
 } from './tools/jira';
 
 import {
@@ -126,6 +127,26 @@ const TOOLS = [
         limit: { type: 'number', description: 'Max comments to return (default 30)' },
       },
       required: ['issue_key'],
+    },
+  },
+  {
+    name: 'jira_create_issue',
+    description: 'Create a new Jira issue. Supports Story, Bug, Task, and other issue types. Can link to an epic and other issues. Description accepts markdown which is converted to Atlassian Document Format.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        project_key: { type: 'string', description: 'Jira project key (e.g. "RTFE", "RTFACT")' },
+        summary: { type: 'string', description: 'Issue title / summary' },
+        description: { type: 'string', description: 'Issue description in markdown. Supports headings, bold, code, numbered and bullet lists.' },
+        issue_type: { type: 'string', description: 'Issue type (default "Story"). Common values: Story, Bug, Task, Improvement, Sub-task' },
+        priority: { type: 'string', description: 'Priority name (e.g. "1 - Critical", "2 - High", "3 - Medium")' },
+        labels: { type: 'array', items: { type: 'string' }, description: 'Labels to apply (e.g. ["search", "ux"])' },
+        epic_key: { type: 'string', description: 'Epic issue key to link this issue under (e.g. "RTFE-4859")' },
+        assignee_email: { type: 'string', description: 'Assignee Atlassian account email' },
+        link_to: { type: 'string', description: 'Issue key to create a link to after creation (e.g. "PNEP-1153")' },
+        link_type: { type: 'string', description: 'Link type name (default "Relates"). Common values: Relates, Blocks, Clones, Duplicate' },
+      },
+      required: ['project_key', 'summary', 'description'],
     },
   },
   {
@@ -281,6 +302,20 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         break;
       case 'jira_get_issue_comments':
         result = await jiraGetIssueComments({ issue_key: a.issue_key, limit: a.limit });
+        break;
+      case 'jira_create_issue':
+        result = await jiraCreateIssue({
+          project_key: a.project_key,
+          summary: a.summary,
+          description: a.description,
+          issue_type: a.issue_type,
+          priority: a.priority,
+          labels: a.labels,
+          epic_key: a.epic_key,
+          assignee_email: a.assignee_email,
+          link_to: a.link_to,
+          link_type: a.link_type,
+        });
         break;
       case 'docs_search':
         result = await docsSearch({ query: a.query, limit: a.limit });

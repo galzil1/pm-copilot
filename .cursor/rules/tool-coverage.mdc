@@ -1,0 +1,27 @@
+---
+description: Ensure every MCP tool is covered in tests and README when tools are added or changed
+globs: src/tools/*.ts, src/index.ts
+alwaysApply: false
+---
+
+# Tool Coverage Checklist
+
+When adding, removing, or modifying an MCP tool in pm-copilot, always update **all three locations** before considering the work done:
+
+## 1. Tool registration (`src/index.ts`)
+- Add the tool to the `TOOLS` array with `name`, `description`, and `inputSchema`.
+- Add a `case` in the `switch` block to dispatch to the implementation function.
+- Update the import at the top of the file.
+
+## 2. Tests (`tests/tools.test.ts`)
+- Import the new function.
+- Add at least one test: a callable/dry-run check for write operations, or a live integration test for read operations.
+- If the tool output format changed, update any assertions that match on output strings.
+
+## 3. README (`README.md`)
+- Add the tool to the appropriate table under **Available Tools**.
+- Update the tool count in the heading (e.g. "Available Tools (18)").
+- If a new integration category was added, add a new table section.
+
+## Quick audit
+Before finishing, mentally cross-check: every `name:` in the `TOOLS` array in `index.ts` must appear in both `tools.test.ts` and `README.md`.

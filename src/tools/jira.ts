@@ -161,6 +161,154 @@ export async function jiraGetIssue(args: {
   }
 }
 
+function parseInlineMarks(text: string): any[] {
+  const result: any[] = [];
+  const regex = /(\*\*(.+?)\*\*)|(`(.+?)`)|([^*`]+)/g;
+  let match;
+  while ((match = regex.exec(text)) !== null) {
+    if (match[2]) {
+      result.push({ type: 'text', text: match[2], marks: [{ type: 'strong' }] });
+    } else if (match[4]) {
+      result.push({ type: 'text', text: match[4], marks: [{ type: 'code' }] });
+    } else if (match[5]) {
+      result.push({ type: 'text', text: match[5] });
+    }
+  }
+  return result.length > 0 ? result : [{ type: 'text', text }];
+}
+
+function markdownToAdf(markdown: string): object {
+  const lines = markdown.split('\n');
+  const content: any[] = [];
+  let i = 0;
+
+  while (i < lines.length) {
+    const line = lines[i];
+
+    if (line.trim() === '') {
+      i++;
+      continue;
+    }
+
+    const headingMatch = line.match(/^(#{1,6})\s+(.+)$/);
+    if (headingMatch) {
+      content.push({
+        type: 'heading',
+        attrs: { level: headingMatch[1].length },
+        content: parseInlineMarks(headingMatch[2]),
+      });
+      i++;
+      continue;
+    }
+
+    if (/^\d+\.\s/.test(line)) {
+      const items: any[] = [];
+      while (i < lines.length && /^\d+\.\s/.test(lines[i])) {
+        const text = lines[i].replace(/^\d+\.\s+/, '');
+        items.push({
+          type: 'listItem',
+          content: [{ type: 'paragraph', content: parseInlineMarks(text) }],
+        });
+        i++;
+      }
+      content.push({ type: 'orderedList', content: items });
+      continue;
+    }
+
+    if (/^[-*]\s/.test(line)) {
+      const items: any[] = [];
+      while (i < lines.length && /^[-*]\s/.test(lines[i])) {
+        const text = lines[i].replace(/^[-*]\s+/, '');
+        items.push({
+          type: 'listItem',
+          content: [{ type: 'paragraph', content: parseInlineMarks(text) }],
+        });
+        i++;
+      }
+      content.push({ type: 'bulletList', content: items });
+      continue;
+    }
+
+    const paraLines: string[] = [];
+    while (
+      i < lines.length &&
+      lines[i].trim() !== '' &&
+      !lines[i].match(/^#{1,6}\s/) &&
+      !/^\d+\.\s/.test(lines[i]) &&
+      !/^[-*]\s/.test(lines[i])
+    ) {
+      paraLines.push(lines[i]);
+      i++;
+    }
+    if (paraLines.length > 0) {
+      content.push({
+        type: 'paragraph',
+        content: parseInlineMarks(paraLines.join(' ')),
+      });
+    }
+  }
+
+  return { version: 1, type: 'doc', content };
+}
+
+export async function jiraCreateIssue(args: {
+  project_key: string;
+  summary: string;
+  description: string;
+  issue_type?: string;
+  priority?: string;
+  labels?: string[];
+  epic_key?: string;
+  assignee_email?: string;
+  link_to?: string;
+  link_type?: string;
+}): Promise<string> {
+  const client = createClient();
+  const issueType = args.issue_type || 'Story';
+
+  const fields: Record<string, any> = {
+    project: { key: args.project_key },
+    summary: args.summary,
+    issuetype: { name: issueType },
+    description: markdownToAdf(args.description),
+  };
+
+  if (args.priority) fields.priority = { name: args.priority };
+  if (args.labels?.length) fields.labels = args.labels;
+  if (args.epic_key) fields.parent = { key: args.epic_key };
+  if (args.assignee_email) fields.assignee = { id: args.assignee_email };
+
+  try {
+    const response = await client.post('/rest/api/3/issue', { fields });
+    const key = response.data.key;
+    const url = `${config.jira.host}/browse/${key}`;
+
+    let result = `Created **${key}**: ${args.summary}\nURL: ${url}`;
+
+    if (args.link_to) {
+      try {
+        await client.post('/rest/api/3/issueLink', {
+          type: { name: args.link_type || 'Relates' },
+          inwardIssue: { key },
+          outwardIssue: { key: args.link_to },
+        });
+        result += `\nLinked to ${args.link_to}`;
+      } catch (linkError: any) {
+        const msg = linkError.response?.data?.errorMessages?.join(', ') || linkError.message;
+        result += `\nWarning: issue created but linking to ${args.link_to} failed: ${msg}`;
+      }
+    }
+
+    return result;
+  } catch (error: any) {
+    const data = error.response?.data;
+    const msgs = data?.errorMessages?.join(', ') || '';
+    const errs = data?.errors ? JSON.stringify(data.errors) : '';
+    const msg = msgs || errs || error.message || error;
+    return `Error creating issue: ${msg}`;
+  }
+}
+
 export async function jiraGetIssueComments(args: {
   issue_key: string;
   limit?: number;

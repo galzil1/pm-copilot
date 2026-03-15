@@ -11,7 +11,7 @@
  */
 
 import { slackGetMyMentions, slackGetThread, slackSearchMessages, slackPostMessage } from '../src/tools/slack';
-import { jiraSearchIssues, jiraGetIssue, jiraGetIssueComments } from '../src/tools/jira';
+import { jiraSearchIssues, jiraGetIssue, jiraGetIssueComments, jiraCreateIssue } from '../src/tools/jira';
 import { docsSearch, docsGetPage } from '../src/tools/docs';
 import { codeSearch, codeGetFile } from '../src/tools/github';
 import { gdocsRead, gsheetsRead, gslidesRead, gdriveSearch, gdriveGetFile, gcalGetEvents } from '../src/tools/google';
@@ -95,27 +95,50 @@ describeJira('Jira Tools', () => {
     expect(result).toBeDefined();
     expect(result).toMatch(/Error|not found|does not exist/i);
   });
+
+  test('jira_create_issue is callable', () => {
+    expect(typeof jiraCreateIssue).toBe('function');
+  });
+
+  test('jira_create_issue rejects missing required fields', async () => {
+    const result = await jiraCreateIssue({ project_key: '', summary: '', description: '' });
+    expect(result).toBeDefined();
+    expect(typeof result).toBe('string');
+  });
 });
 
 // ─── JFrog Docs (no credentials needed) ─────────────────────
 
 describe('JFrog Docs Tools', () => {
-  test('docs_search returns matching pages for known topic', async () => {
+  test('docs_search returns matching pages from both doc sources', async () => {
     const result = await docsSearch({ query: 'docker cleanup' });
     expectSuccess(result);
-    expect(result).toContain('jfrog.com');
+    expect(result).toContain('jfrog.com/help');
+    expect(result).toContain('docs.jfrog.com');
   });
 
   test('docs_search handles unknown topic', async () => {
     const result = await docsSearch({ query: 'xyznonexistent12345' });
     expectSuccess(result);
-    expect(result).toContain('Direct link attempt');
+    expect(result).toContain('Direct link attempts');
   });
 
-  test('docs_get_page fetches a known documentation URL', async () => {
+  test('docs_get_page fetches a legacy documentation URL', async () => {
     const result = await docsGetPage({ url: 'https://jfrog.com/help/r/jfrog-artifactory-documentation/repository-management' });
     expectSuccess(result);
     expect(result).toContain('jfrog.com');
+  });
+
+  test('docs_get_page fetches a new docs URL', async () => {
+    const result = await docsGetPage({ url: 'https://docs.jfrog.com/artifactory/docs/getting-started' });
+    expectSuccess(result);
+    expect(result).toContain('docs.jfrog.com');
+  });
+
+  test('docs_get_page resolves a relative path to new docs', async () => {
+    const result = await docsGetPage({ url: 'repository-management' });
+    expectSuccess(result);
+    expect(result).toContain('docs.jfrog.com');
   });
 });
 

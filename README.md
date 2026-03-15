@@ -20,7 +20,7 @@ MCP server that gives Cursor's AI access to Slack, Jira, JFrog documentation, th
 4. Claude drafts a response in your voice/tone (defined by your personal Cursor rule)
 5. You review, refine, and post via the `slack_post_message` tool or copy-paste
 
-## Available Tools (17)
+## Available Tools (18)
 
 ### Slack
 | Tool | Description |
@@ -36,12 +36,13 @@ MCP server that gives Cursor's AI access to Slack, Jira, JFrog documentation, th
 | `jira_search_issues` | Search Jira by keyword or JQL |
 | `jira_get_issue` | Get full issue details with description and comments |
 | `jira_get_issue_comments` | Get all comments on an issue |
+| `jira_create_issue` | Create a new issue (Story, Bug, Task, etc.) with epic link and issue links |
 
 ### JFrog Documentation
 | Tool | Description |
 |------|-------------|
-| `docs_search` | Search JFrog official documentation |
-| `docs_get_page` | Fetch and read a specific docs page |
+| `docs_search` | Search JFrog official documentation across both [docs.jfrog.com](https://docs.jfrog.com/) (new) and [jfrog.com/help](https://jfrog.com/help/r/jfrog-artifactory-documentation) (legacy) |
+| `docs_get_page` | Fetch and read a specific docs page (accepts URLs from either site, or a relative slug) |
 
 ### Artifactory Codebase
 | Tool | Description |

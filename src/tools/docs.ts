@@ -1,100 +1,140 @@
 import axios from 'axios';
 
-const DOCS_BASE = 'https://jfrog.com/help/r/jfrog-artifactory-documentation';
+const DOCS_LEGACY_BASE = 'https://jfrog.com/help/r/jfrog-artifactory-documentation';
+const DOCS_NEW_BASE = 'https://docs.jfrog.com/artifactory/docs';
+const DOCS_NEW_CROSS = 'https://docs.jfrog.com/docs';
 
-const KNOWN_DOCS: Record<string, { title: string; url: string }[]> = {
+interface DocEntry { title: string; url: string; source: 'legacy' | 'new' }
+
+const KNOWN_DOCS: Record<string, DocEntry[]> = {
   replication: [
-    { title: 'Repository Replication', url: `${DOCS_BASE}/repository-replication` },
-    { title: 'Push Replication', url: `${DOCS_BASE}/push-replication` },
-    { title: 'Pull Replication', url: `${DOCS_BASE}/pull-replication` },
-    { title: 'Event Replication', url: `${DOCS_BASE}/event-replication` },
-    { title: 'Configuring Replication', url: `${DOCS_BASE}/configuring-push-replication` },
+    { title: 'Repository Replication', url: `${DOCS_LEGACY_BASE}/repository-replication`, source: 'legacy' },
+    { title: 'Push Replication', url: `${DOCS_LEGACY_BASE}/push-replication`, source: 'legacy' },
+    { title: 'Pull Replication', url: `${DOCS_LEGACY_BASE}/pull-replication`, source: 'legacy' },
+    { title: 'Event Replication', url: `${DOCS_LEGACY_BASE}/event-replication`, source: 'legacy' },
+    { title: 'Configuring Replication', url: `${DOCS_LEGACY_BASE}/configuring-push-replication`, source: 'legacy' },
+    { title: 'Repository Replication (new docs)', url: `${DOCS_NEW_CROSS}/repository-replication`, source: 'new' },
+    { title: 'Federated Repositories (new docs)', url: `${DOCS_NEW_CROSS}/federated-repositories`, source: 'new' },
   ],
   repository: [
-    { title: 'Repository Management', url: `${DOCS_BASE}/repository-management` },
-    { title: 'Local Repositories', url: `${DOCS_BASE}/local-repositories` },
-    { title: 'Remote Repositories', url: `${DOCS_BASE}/remote-repositories` },
-    { title: 'Virtual Repositories', url: `${DOCS_BASE}/virtual-repositories` },
-    { title: 'Federated Repositories', url: `${DOCS_BASE}/federated-repositories` },
+    { title: 'Repository Management', url: `${DOCS_LEGACY_BASE}/repository-management`, source: 'legacy' },
+    { title: 'Local Repositories', url: `${DOCS_LEGACY_BASE}/local-repositories`, source: 'legacy' },
+    { title: 'Remote Repositories', url: `${DOCS_LEGACY_BASE}/remote-repositories`, source: 'legacy' },
+    { title: 'Virtual Repositories', url: `${DOCS_LEGACY_BASE}/virtual-repositories`, source: 'legacy' },
+    { title: 'Federated Repositories', url: `${DOCS_LEGACY_BASE}/federated-repositories`, source: 'legacy' },
+    { title: 'Repository Management (new docs)', url: `${DOCS_NEW_BASE}/repository-management`, source: 'new' },
+    { title: 'Repository Management Overview (new docs)', url: `${DOCS_NEW_BASE}/repository-management-overview`, source: 'new' },
+    { title: 'Local Repositories (new docs)', url: `${DOCS_NEW_CROSS}/local-repositories`, source: 'new' },
+    { title: 'Remote Repositories (new docs)', url: `${DOCS_NEW_CROSS}/remote-repositories`, source: 'new' },
+    { title: 'Virtual Repositories (new docs)', url: `${DOCS_NEW_CROSS}/virtual-repositories`, source: 'new' },
+    { title: 'Federated Repositories (new docs)', url: `${DOCS_NEW_CROSS}/federated-repositories`, source: 'new' },
   ],
   docker: [
-    { title: 'Docker Registry', url: `${DOCS_BASE}/docker-registry` },
-    { title: 'Getting Started with Docker', url: `${DOCS_BASE}/getting-started-with-artifactory-as-a-docker-registry` },
-    { title: 'Docker Cleanup Policies', url: `${DOCS_BASE}/docker-cleanup-policies` },
+    { title: 'Docker Registry', url: `${DOCS_LEGACY_BASE}/docker-registry`, source: 'legacy' },
+    { title: 'Getting Started with Docker', url: `${DOCS_LEGACY_BASE}/getting-started-with-artifactory-as-a-docker-registry`, source: 'legacy' },
+    { title: 'Docker Cleanup Policies', url: `${DOCS_LEGACY_BASE}/docker-cleanup-policies`, source: 'legacy' },
+    { title: 'Docker Repositories (new docs)', url: `${DOCS_NEW_CROSS}/docker-repositories`, source: 'new' },
   ],
   npm: [
-    { title: 'npm Registry', url: `${DOCS_BASE}/npm-registry` },
-    { title: 'npm Repositories', url: `${DOCS_BASE}/npm-repositories` },
+    { title: 'npm Registry', url: `${DOCS_LEGACY_BASE}/npm-registry`, source: 'legacy' },
+    { title: 'npm Repositories', url: `${DOCS_LEGACY_BASE}/npm-repositories`, source: 'legacy' },
+    { title: 'npm Repositories (new docs)', url: `${DOCS_NEW_CROSS}/npm-repositories`, source: 'new' },
   ],
   maven: [
-    { title: 'Maven Repository', url: `${DOCS_BASE}/maven-repository` },
-    { title: 'Maven Snapshots', url: `${DOCS_BASE}/maven-snapshot-version-handling` },
+    { title: 'Maven Repository', url: `${DOCS_LEGACY_BASE}/maven-repository`, source: 'legacy' },
+    { title: 'Maven Snapshots', url: `${DOCS_LEGACY_BASE}/maven-snapshot-version-handling`, source: 'legacy' },
+    { title: 'Maven Repositories (new docs)', url: `${DOCS_NEW_CROSS}/maven-repositories`, source: 'new' },
   ],
   permissions: [
-    { title: 'Permissions', url: `${DOCS_BASE}/permissions` },
-    { title: 'Permission Targets', url: `${DOCS_BASE}/permission-targets` },
-    { title: 'Access Tokens', url: `${DOCS_BASE}/access-tokens` },
+    { title: 'Permissions', url: `${DOCS_LEGACY_BASE}/permissions`, source: 'legacy' },
+    { title: 'Permission Targets', url: `${DOCS_LEGACY_BASE}/permission-targets`, source: 'legacy' },
+    { title: 'Access Tokens', url: `${DOCS_LEGACY_BASE}/access-tokens`, source: 'legacy' },
   ],
   security: [
-    { title: 'Security Configuration', url: `${DOCS_BASE}/security-configuration` },
-    { title: 'Access Tokens', url: `${DOCS_BASE}/access-tokens` },
-    { title: 'API Keys', url: `${DOCS_BASE}/api-key` },
+    { title: 'Security Configuration', url: `${DOCS_LEGACY_BASE}/security-configuration`, source: 'legacy' },
+    { title: 'Access Tokens', url: `${DOCS_LEGACY_BASE}/access-tokens`, source: 'legacy' },
+    { title: 'API Keys', url: `${DOCS_LEGACY_BASE}/api-key`, source: 'legacy' },
+    { title: 'Get Started with Security (new docs)', url: 'https://docs.jfrog.com/security/docs/get-started-with-jfrog-security', source: 'new' },
   ],
   cleanup: [
-    { title: 'Cleanup Policies', url: `${DOCS_BASE}/cleanup-policies` },
-    { title: 'Docker Cleanup Policies', url: `${DOCS_BASE}/docker-cleanup-policies` },
-    { title: 'Artifact Cleanup', url: `${DOCS_BASE}/artifact-cleanup` },
+    { title: 'Cleanup Policies', url: `${DOCS_LEGACY_BASE}/cleanup-policies`, source: 'legacy' },
+    { title: 'Docker Cleanup Policies', url: `${DOCS_LEGACY_BASE}/docker-cleanup-policies`, source: 'legacy' },
+    { title: 'Artifact Cleanup', url: `${DOCS_LEGACY_BASE}/artifact-cleanup`, source: 'legacy' },
   ],
   'rest api': [
-    { title: 'Artifactory REST API', url: `${DOCS_BASE}/artifactory-rest-api` },
-    { title: 'System REST API', url: `${DOCS_BASE}/system-rest-api` },
-    { title: 'Repositories REST API', url: `${DOCS_BASE}/repositories-rest-api` },
-    { title: 'Builds REST API', url: `${DOCS_BASE}/builds-rest-api` },
-    { title: 'Search REST API', url: `${DOCS_BASE}/search-rest-api` },
+    { title: 'Artifactory REST API', url: `${DOCS_LEGACY_BASE}/artifactory-rest-api`, source: 'legacy' },
+    { title: 'System REST API', url: `${DOCS_LEGACY_BASE}/system-rest-api`, source: 'legacy' },
+    { title: 'Repositories REST API', url: `${DOCS_LEGACY_BASE}/repositories-rest-api`, source: 'legacy' },
+    { title: 'Builds REST API', url: `${DOCS_LEGACY_BASE}/builds-rest-api`, source: 'legacy' },
+    { title: 'Search REST API', url: `${DOCS_LEGACY_BASE}/search-rest-api`, source: 'legacy' },
   ],
   aql: [
-    { title: 'Artifactory Query Language', url: `${DOCS_BASE}/artifactory-query-language` },
-    { title: 'AQL Syntax', url: `${DOCS_BASE}/aql-syntax` },
+    { title: 'Artifactory Query Language', url: `${DOCS_LEGACY_BASE}/artifactory-query-language`, source: 'legacy' },
+    { title: 'AQL Syntax', url: `${DOCS_LEGACY_BASE}/aql-syntax`, source: 'legacy' },
   ],
   storage: [
-    { title: 'Configuring Storage', url: `${DOCS_BASE}/configuring-storage` },
-    { title: 'Storage Summary', url: `${DOCS_BASE}/storage-summary` },
-    { title: 'Filestore Configuration', url: `${DOCS_BASE}/filestore-configuration` },
+    { title: 'Configuring Storage', url: `${DOCS_LEGACY_BASE}/configuring-storage`, source: 'legacy' },
+    { title: 'Storage Summary', url: `${DOCS_LEGACY_BASE}/storage-summary`, source: 'legacy' },
+    { title: 'Filestore Configuration', url: `${DOCS_LEGACY_BASE}/filestore-configuration`, source: 'legacy' },
   ],
   backup: [
-    { title: 'System Backup', url: `${DOCS_BASE}/system-backup-and-restore` },
-    { title: 'Backup and Restore', url: `${DOCS_BASE}/backup-and-restore` },
+    { title: 'System Backup', url: `${DOCS_LEGACY_BASE}/system-backup-and-restore`, source: 'legacy' },
+    { title: 'Backup and Restore', url: `${DOCS_LEGACY_BASE}/backup-and-restore`, source: 'legacy' },
   ],
   properties: [
-    { title: 'Properties', url: `${DOCS_BASE}/properties` },
-    { title: 'Setting Properties', url: `${DOCS_BASE}/setting-properties` },
-    { title: 'Using Properties in Deployment', url: `${DOCS_BASE}/using-properties-in-deployment-and-resolution` },
+    { title: 'Properties', url: `${DOCS_LEGACY_BASE}/properties`, source: 'legacy' },
+    { title: 'Setting Properties', url: `${DOCS_LEGACY_BASE}/setting-properties`, source: 'legacy' },
+    { title: 'Using Properties in Deployment', url: `${DOCS_LEGACY_BASE}/using-properties-in-deployment-and-resolution`, source: 'legacy' },
   ],
   build: [
-    { title: 'Build Integration', url: `${DOCS_BASE}/build-integration` },
-    { title: 'Build Info', url: `${DOCS_BASE}/build-info` },
+    { title: 'Build Integration', url: `${DOCS_LEGACY_BASE}/build-integration`, source: 'legacy' },
+    { title: 'Build Info', url: `${DOCS_LEGACY_BASE}/build-info`, source: 'legacy' },
+    { title: 'About Build Info (new docs)', url: 'https://docs.jfrog.com/integrations/docs/about-build-info', source: 'new' },
   ],
   cache: [
-    { title: 'Remote Repository Caching', url: `${DOCS_BASE}/remote-repository-caching` },
-    { title: 'Cache Configuration', url: `${DOCS_BASE}/cache-configuration` },
+    { title: 'Remote Repository Caching', url: `${DOCS_LEGACY_BASE}/remote-repository-caching`, source: 'legacy' },
+    { title: 'Cache Configuration', url: `${DOCS_LEGACY_BASE}/cache-configuration`, source: 'legacy' },
   ],
   proxy: [
-    { title: 'Managing Proxies', url: `${DOCS_BASE}/managing-proxies` },
-    { title: 'Reverse Proxy Configuration', url: `${DOCS_BASE}/reverse-proxy-configuration` },
+    { title: 'Managing Proxies', url: `${DOCS_LEGACY_BASE}/managing-proxies`, source: 'legacy' },
+    { title: 'Reverse Proxy Configuration', url: `${DOCS_LEGACY_BASE}/reverse-proxy-configuration`, source: 'legacy' },
   ],
   high_availability: [
-    { title: 'High Availability', url: `${DOCS_BASE}/high-availability` },
-    { title: 'HA Cluster Setup', url: `${DOCS_BASE}/ha-cluster-setup` },
+    { title: 'High Availability', url: `${DOCS_LEGACY_BASE}/high-availability`, source: 'legacy' },
+    { title: 'HA Cluster Setup', url: `${DOCS_LEGACY_BASE}/ha-cluster-setup`, source: 'legacy' },
   ],
   webhook: [
-    { title: 'Webhooks', url: `${DOCS_BASE}/webhooks` },
-    { title: 'Configuring Webhooks', url: `${DOCS_BASE}/configuring-webhooks` },
+    { title: 'Webhooks', url: `${DOCS_LEGACY_BASE}/webhooks`, source: 'legacy' },
+    { title: 'Configuring Webhooks', url: `${DOCS_LEGACY_BASE}/configuring-webhooks`, source: 'legacy' },
+  ],
+  package: [
+    { title: 'Supported Package Types (new docs)', url: `${DOCS_NEW_BASE}/supported-package-types`, source: 'new' },
+    { title: 'Working with Package Management (new docs)', url: `${DOCS_NEW_BASE}/working-with-package-management`, source: 'new' },
+    { title: 'Package Use Cases (new docs)', url: `${DOCS_NEW_BASE}/package-and-repositories-use-cases`, source: 'new' },
+  ],
+  distribution: [
+    { title: 'JFrog Distribution (new docs)', url: `${DOCS_NEW_BASE}/jfrog-distribution`, source: 'new' },
+  ],
+  search: [
+    { title: 'Searching for Artifacts (new docs)', url: `${DOCS_NEW_BASE}/understanding-how-to-search-for-artifacts-and-packages`, source: 'new' },
+    { title: 'Supported Search Methods (new docs)', url: `${DOCS_NEW_BASE}/supported-search-methods`, source: 'new' },
+    { title: 'Browsing Artifacts (new docs)', url: `${DOCS_NEW_BASE}/browsing-artifacts`, source: 'new' },
+  ],
+  upload: [
+    { title: 'Upload and Download Packages (new docs)', url: `${DOCS_NEW_BASE}/upload-and-download-packages-using-artifactory`, source: 'new' },
+  ],
+  setup: [
+    { title: 'Getting Started (new docs)', url: `${DOCS_NEW_BASE}/getting-started`, source: 'new' },
+    { title: 'Set up JFrog (new docs)', url: 'https://docs.jfrog.com/setup/docs/get-started', source: 'new' },
+  ],
+  installation: [
+    { title: 'Self-Managed Installation (new docs)', url: 'https://docs.jfrog.com/installation/docs/getting-started', source: 'new' },
   ],
 };
 
-function findMatchingDocs(query: string): { title: string; url: string }[] {
+function findMatchingDocs(query: string): DocEntry[] {
   const lowerQuery = query.toLowerCase();
-  const matches: { title: string; url: string; score: number }[] = [];
+  const matches: (DocEntry & { score: number })[] = [];
 
   for (const [topic, pages] of Object.entries(KNOWN_DOCS)) {
     const topicWords = topic.split(/[_ ]/);
@@ -107,7 +147,6 @@ function findMatchingDocs(query: string): { title: string; url: string }[] {
     }
   }
 
-  // Deduplicate by URL
   const seen = new Set<string>();
   return matches
     .sort((a, b) => b.score - a.score)
@@ -126,22 +165,38 @@ export async function docsSearch(args: {
   const matches = findMatchingDocs(args.query).slice(0, limit);
 
   const querySlug = args.query.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
-  const guessedUrl = `${DOCS_BASE}/${querySlug}`;
+  const legacyGuess = `${DOCS_LEGACY_BASE}/${querySlug}`;
+  const newGuess = `${DOCS_NEW_BASE}/${querySlug}`;
+
+  const legacyMatches = matches.filter((m) => m.source === 'legacy');
+  const newMatches = matches.filter((m) => m.source === 'new');
 
   let result = `## JFrog Documentation Search: "${args.query}"\n\n`;
 
-  if (matches.length > 0) {
-    result += `**Matching documentation pages:**\n\n`;
-    matches.forEach((m, i) => {
+  if (newMatches.length > 0) {
+    result += `### docs.jfrog.com (new)\n\n`;
+    newMatches.forEach((m, i) => {
       result += `${i + 1}. [${m.title}](${m.url})\n`;
     });
     result += '\n';
   }
 
-  result += `**Direct link attempt:** ${guessedUrl}\n`;
-  result += `**Browse docs:** ${DOCS_BASE}\n`;
+  if (legacyMatches.length > 0) {
+    result += `### jfrog.com/help (legacy)\n\n`;
+    legacyMatches.forEach((m, i) => {
+      result += `${i + 1}. [${m.title}](${m.url})\n`;
+    });
+    result += '\n';
+  }
+
+  result += `**Direct link attempts:**\n`;
+  result += `- New docs: ${newGuess}\n`;
+  result += `- Legacy docs: ${legacyGuess}\n\n`;
+  result += `**Browse docs:**\n`;
+  result += `- New: https://docs.jfrog.com/artifactory\n`;
+  result += `- Legacy: ${DOCS_LEGACY_BASE}\n\n`;
   result += `**Search on site:** https://jfrog.com/help/s/global-search/%40uri?q=${encodeURIComponent(args.query)}\n\n`;
-  result += `_Note: JFrog docs is a client-rendered SPA. Use Cursor's WebFetch tool to read full page content from the URLs above._`;
+  result += `_Tip: Use Cursor's WebFetch tool to read full page content from the URLs above._`;
 
   return result;
 }
@@ -149,7 +204,14 @@ export async function docsSearch(args: {
 export async function docsGetPage(args: {
   url: string;
 }): Promise<string> {
-  const url = args.url.startsWith('http') ? args.url : `${DOCS_BASE}/${args.url}`;
+  let url: string;
+  if (args.url.startsWith('http')) {
+    url = args.url;
+  } else if (args.url.startsWith('docs/') || args.url.includes('/docs/')) {
+    url = `https://docs.jfrog.com/artifactory/${args.url}`;
+  } else {
+    url = `${DOCS_NEW_BASE}/${args.url}`;
+  }
 
   try {
     const response = await axios.get(url, {
@@ -168,7 +230,7 @@ export async function docsGetPage(args: {
       let result = `# ${title || 'JFrog Documentation Page'}\n`;
       result += `URL: ${url}\n`;
       if (description) result += `Description: ${description}\n`;
-      result += `\n_This page is a client-rendered SPA. The URL is valid but content must be fetched with a browser-capable tool. Use Cursor's WebFetch tool on the URL above to read the full content._\n`;
+      result += `\n_Tip: Use Cursor's WebFetch tool on the URL above to read the full rendered content._\n`;
 
       return result;
     }
@@ -176,7 +238,7 @@ export async function docsGetPage(args: {
     return `Page returned status ${response.status}: ${url}`;
   } catch (error: any) {
     if (error.response?.status === 404) {
-      return `Page not found: ${url}\n\nTry searching at: ${DOCS_BASE}`;
+      return `Page not found: ${url}\n\nTry:\n- New docs: https://docs.jfrog.com/artifactory\n- Legacy docs: ${DOCS_LEGACY_BASE}`;
     }
     return `Error fetching page: ${error.message}\n\nDirect link: ${url}`;
   }
