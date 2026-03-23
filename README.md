@@ -20,7 +20,7 @@ MCP server that gives Cursor's AI access to Slack, Jira, JFrog documentation, th
 4. Claude drafts a response in your voice/tone (defined by your personal Cursor rule)
 5. You review, refine, and post via the `slack_post_message` tool or copy-paste
 
-## Available Tools (18)
+## Available Tools (22)
 
 ### Slack
 | Tool | Description |
@@ -37,6 +37,8 @@ MCP server that gives Cursor's AI access to Slack, Jira, JFrog documentation, th
 | `jira_get_issue` | Get full issue details with description and comments |
 | `jira_get_issue_comments` | Get all comments on an issue |
 | `jira_create_issue` | Create a new issue (Story, Bug, Task, etc.) with epic link and issue links |
+| `jira_update_issue` | Update an existing issue's summary, description, or any custom field by ID |
+| `jira_get_editable_fields` | Discover editable fields on an issue with their IDs, types, and allowed values |
 
 ### JFrog Documentation
 | Tool | Description |
@@ -44,11 +46,17 @@ MCP server that gives Cursor's AI access to Slack, Jira, JFrog documentation, th
 | `docs_search` | Search JFrog official documentation across both [docs.jfrog.com](https://docs.jfrog.com/) (new) and [jfrog.com/help](https://jfrog.com/help/r/jfrog-artifactory-documentation) (legacy) |
 | `docs_get_page` | Fetch and read a specific docs page (accepts URLs from either site, or a relative slug) |
 
-### Artifactory Codebase
+### Artifactory Codebase (Backend — `artifactory-service`)
 | Tool | Description |
 |------|-------------|
-| `code_search` | Search the Artifactory codebase |
-| `code_get_file` | Fetch a file or directory listing from the repo |
+| `code_search` | Search the Artifactory backend codebase (Java, Groovy, configs) |
+| `code_get_file` | Fetch a file or directory listing from the backend repo |
+
+### Artifactory MFE (Frontend — `artifactory-mfe`)
+| Tool | Description |
+|------|-------------|
+| `mfe_code_search` | Search the Artifactory MFE frontend codebase (Vue, TypeScript, components) |
+| `mfe_code_get_file` | Fetch a file or directory listing from the MFE repo |
 
 ### Google Workspace
 | Tool | Description |
@@ -143,6 +151,7 @@ Create or edit `.cursor/mcp.json` in your **workspace root** (not inside pm-copi
         "GITHUB_ENTERPRISE_URL": "https://github.jfrog.info",
         "GITHUB_ENTERPRISE_TOKEN": "your-github-pat",
         "ARTIFACTORY_REPO": "JFROG/artifactory-service",
+        "ARTIFACTORY_MFE_REPO": "JFROG/artifactory-mfe",
         "GOOGLE_CLIENT_ID": "your-google-client-id",
         "GOOGLE_CLIENT_SECRET": "your-google-client-secret",
         "GOOGLE_REFRESH_TOKEN": "your-google-refresh-token"
@@ -187,7 +196,7 @@ Claude will:
 1. Use `slack_search_messages` to find the original message
 2. Use `jira_search_issues` to find related tickets
 3. Use `docs_search` to find relevant documentation
-4. Use `code_search` to check the implementation if needed
+4. Use `code_search` and `mfe_code_search` to check the implementation across backend and frontend
 5. Draft a response in your voice
 
 > "Looks good, please post it in the thread"

@@ -309,6 +309,77 @@ export async function jiraCreateIssue(args: {
   }
 }
 
+export async function jiraUpdateIssue(args: {
+  issue_key: string;
+  summary?: string;
+  description?: string;
+  fields?: Record<string, any>;
+}): Promise<string> {
+  const client = createClient();
+  const updateFields: Record<string, any> = {};
+
+  if (args.summary) updateFields.summary = args.summary;
+  if (args.description) updateFields.description = markdownToAdf(args.description);
+  if (args.fields) {
+    for (const [key, value] of Object.entries(args.fields)) {
+      if (typeof value === 'string' && key.startsWith('customfield_')) {
+        updateFields[key] = markdownToAdf(value);
+      } else {
+        updateFields[key] = value;
+      }
+    }
+  }
+
+  if (Object.keys(updateFields).length === 0) {
+    return 'No fields to update.';
+  }
+
+  try {
+    await client.put(`/rest/api/3/issue/${args.issue_key}`, { fields: updateFields });
+    const url = `${config.jira.host}/browse/${args.issue_key}`;
+    return `Updated **${args.issue_key}** successfully.\nURL: ${url}\nFields updated: ${Object.keys(updateFields).join(', ')}`;
+  } catch (error: any) {
+    const data = error.response?.data;
+    const msgs = data?.errorMessages?.join(', ') || '';
+    const errs = data?.errors ? JSON.stringify(data.errors) : '';
+    const msg = msgs || errs || error.message || error;
+    return `Error updating ${args.issue_key}: ${msg}`;
+  }
+}
+
+export async function jiraGetEditableFields(args: {
+  issue_key: string;
+  search?: string;
+}): Promise<string> {
+  const client = createClient();
+
+  try {
+    const response = await client.get(`/rest/api/3/issue/${args.issue_key}/editmeta`);
+    const fields = response.data.fields || {};
+    const results: string[] = [];
+
+    for (const [id, meta] of Object.entries(fields)) {
+      const m = meta as any;
+      const name = m.name || id;
+      if (args.search && !name.toLowerCase().includes(args.search.toLowerCase()) && !id.toLowerCase().includes(args.search.toLowerCase())) {
+        continue;
+      }
+      const type = m.schema?.type || 'unknown';
+      const allowed = m.allowedValues?.slice(0, 5).map((v: any) => v.value || v.name || v.id).join(', ');
+      let line = `**${id}**: ${name} (${type})`;
+      if (allowed) line += ` — allowed: [${allowed}]`;
+      results.push(line);
+    }
+
+    return results.length > 0
+      ? `Editable fields for ${args.issue_key}:\n\n${results.join('\n')}`
+      : `No matching editable fields found for ${args.issue_key}.`;
+  } catch (error: any) {
+    const msg = error.response?.data?.errorMessages?.join(', ') || error.message || error;
+    return `Error fetching editable fields for ${args.issue_key}: ${msg}`;
+  }
+}
+
 export async function jiraGetIssueComments(args: {
   issue_key: string;
   limit?: number;

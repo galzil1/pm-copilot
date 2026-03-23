@@ -11,7 +11,7 @@
  */
 
 import { slackGetMyMentions, slackGetThread, slackSearchMessages, slackPostMessage } from '../src/tools/slack';
-import { jiraSearchIssues, jiraGetIssue, jiraGetIssueComments, jiraCreateIssue } from '../src/tools/jira';
+import { jiraSearchIssues, jiraGetIssue, jiraGetIssueComments, jiraCreateIssue, jiraUpdateIssue, jiraGetEditableFields } from '../src/tools/jira';
 import { docsSearch, docsGetPage } from '../src/tools/docs';
 import { codeSearch, codeGetFile } from '../src/tools/github';
 import { gdocsRead, gsheetsRead, gslidesRead, gdriveSearch, gdriveGetFile, gcalGetEvents } from '../src/tools/google';
@@ -105,6 +105,34 @@ describeJira('Jira Tools', () => {
     expect(result).toBeDefined();
     expect(typeof result).toBe('string');
   });
+
+  test('jira_update_issue is callable', () => {
+    expect(typeof jiraUpdateIssue).toBe('function');
+  });
+
+  test('jira_update_issue handles non-existent ticket', async () => {
+    const result = await jiraUpdateIssue({ issue_key: 'FAKE-99999', summary: 'test' });
+    expect(result).toBeDefined();
+    expect(result).toMatch(/Error/i);
+  });
+
+  test('jira_get_editable_fields returns fields for a known ticket', async () => {
+    const result = await jiraGetEditableFields({ issue_key: 'RTDEV-79775' });
+    expectSuccess(result);
+    expect(result).toMatch(/Editable fields|Error/i);
+  });
+
+  test('jira_get_editable_fields supports search filter', async () => {
+    const result = await jiraGetEditableFields({ issue_key: 'RTDEV-79775', search: 'summary' });
+    expectSuccess(result);
+    expect(result).toMatch(/summary/i);
+  });
+
+  test('jira_get_editable_fields handles non-existent ticket', async () => {
+    const result = await jiraGetEditableFields({ issue_key: 'FAKE-99999' });
+    expect(result).toBeDefined();
+    expect(result).toMatch(/Error/i);
+  });
 });
 
 // ─── JFrog Docs (no credentials needed) ─────────────────────
@@ -146,7 +174,7 @@ describe('JFrog Docs Tools', () => {
 
 const describeGithub = githubConfigured ? describe : describe.skip;
 
-describeGithub('GitHub Enterprise Tools', () => {
+describeGithub('GitHub Enterprise Tools (Backend)', () => {
   test('code_search finds results in the Artifactory repo', async () => {
     const result = await codeSearch({ query: 'RemoteRepo', limit: 3 });
     expectSuccess(result);
@@ -161,6 +189,34 @@ describeGithub('GitHub Enterprise Tools', () => {
 
   test('code_get_file handles non-existent path', async () => {
     const result = await codeGetFile({ path: 'this/path/does/not/exist.java' });
+    expect(result).toBeDefined();
+    expect(result).toMatch(/not found/i);
+  });
+});
+
+describeGithub('GitHub Enterprise Tools (MFE Frontend)', () => {
+  const mfeRepo = config.github.mfeRepo;
+
+  test('mfe_code_search finds results in the MFE repo', async () => {
+    const result = await codeSearch({ query: 'HeapHandler', limit: 3, repo: mfeRepo });
+    expectSuccess(result);
+    expect(result).toMatch(/result|No code results/i);
+  });
+
+  test('mfe_code_search finds Vue components', async () => {
+    const result = await codeSearch({ query: 'PackagesListPage', extension: 'vue', limit: 3, repo: mfeRepo });
+    expectSuccess(result);
+    expect(result).toMatch(/result|No code results/i);
+  });
+
+  test('mfe_code_get_file returns directory listing for frontend/core', async () => {
+    const result = await codeGetFile({ path: 'frontend/core', repo: mfeRepo });
+    expectSuccess(result);
+    expect(result).toMatch(/Directory listing|File not found/i);
+  });
+
+  test('mfe_code_get_file handles non-existent path', async () => {
+    const result = await codeGetFile({ path: 'this/path/does/not/exist.vue', repo: mfeRepo });
     expect(result).toBeDefined();
     expect(result).toMatch(/not found/i);
   });

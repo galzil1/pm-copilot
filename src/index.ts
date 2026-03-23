@@ -19,6 +19,8 @@ import {
   jiraGetIssue,
   jiraGetIssueComments,
   jiraCreateIssue,
+  jiraUpdateIssue,
+  jiraGetEditableFields,
 } from './tools/jira';
 
 import {
@@ -30,6 +32,8 @@ import {
   codeSearch,
   codeGetFile,
 } from './tools/github';
+
+import { config } from './config';
 
 import {
   gdocsRead,
@@ -150,6 +154,35 @@ const TOOLS = [
     },
   },
   {
+    name: 'jira_update_issue',
+    description: 'Update an existing Jira issue. Can update summary, description, and any custom fields by field ID. Use jira_get_editable_fields to discover available field IDs.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        issue_key: { type: 'string', description: 'Jira issue key (e.g. PNEP-1153)' },
+        summary: { type: 'string', description: 'New issue title / summary' },
+        description: { type: 'string', description: 'New description in markdown' },
+        fields: {
+          type: 'object',
+          description: 'Map of field ID to value for custom fields (e.g. {"customfield_12345": "value"}). String values containing markdown will be auto-converted to ADF.',
+        },
+      },
+      required: ['issue_key'],
+    },
+  },
+  {
+    name: 'jira_get_editable_fields',
+    description: 'Get the list of editable fields for a Jira issue, with their field IDs, types, and allowed values. Useful for discovering custom field IDs before updating.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        issue_key: { type: 'string', description: 'Jira issue key (e.g. PNEP-1153)' },
+        search: { type: 'string', description: 'Optional filter to search fields by name (e.g. "problem", "business")' },
+      },
+      required: ['issue_key'],
+    },
+  },
+  {
     name: 'docs_search',
     description: 'Search JFrog official documentation for Artifactory features, configuration, REST APIs, best practices, and more.',
     inputSchema: {
@@ -174,7 +207,7 @@ const TOOLS = [
   },
   {
     name: 'code_search',
-    description: 'Search the Artifactory codebase (artifactory-service repo) for code, classes, methods, or configurations.',
+    description: 'Search the Artifactory backend codebase (artifactory-service repo) for code, classes, methods, or configurations. For frontend/UI code, use mfe_code_search instead.',
     inputSchema: {
       type: 'object' as const,
       properties: {
@@ -188,11 +221,37 @@ const TOOLS = [
   },
   {
     name: 'code_get_file',
-    description: 'Fetch a specific file or directory listing from the Artifactory codebase.',
+    description: 'Fetch a specific file or directory listing from the Artifactory backend codebase (artifactory-service repo). For frontend/UI files, use mfe_code_get_file instead.',
     inputSchema: {
       type: 'object' as const,
       properties: {
         path: { type: 'string', description: 'File path in the repo (e.g. "backend/core/src/main/java/.../RemoteRepo.java")' },
+        ref: { type: 'string', description: 'Git ref - branch, tag, or commit SHA (default: main branch)' },
+      },
+      required: ['path'],
+    },
+  },
+  {
+    name: 'mfe_code_search',
+    description: 'Search the Artifactory MFE frontend codebase (artifactory-mfe repo) for UI components, Vue files, TypeScript, analytics events, and frontend logic.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        query: { type: 'string', description: 'Code search query (e.g. "heapTrack", "PackagesList", "HeapHandler")' },
+        path: { type: 'string', description: 'Limit search to a path (e.g. "frontend/core/src/containers")' },
+        extension: { type: 'string', description: 'Limit to file extension (e.g. "ts", "vue", "js")' },
+        limit: { type: 'number', description: 'Max results to return (default 15)' },
+      },
+      required: ['query'],
+    },
+  },
+  {
+    name: 'mfe_code_get_file',
+    description: 'Fetch a specific file or directory listing from the Artifactory MFE frontend codebase (artifactory-mfe repo).',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        path: { type: 'string', description: 'File path in the MFE repo (e.g. "frontend/core/src/containers/Packages/heap.constants.ts")' },
         ref: { type: 'string', description: 'Git ref - branch, tag, or commit SHA (default: main branch)' },
       },
       required: ['path'],
@@ -317,6 +376,20 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           link_type: a.link_type,
         });
         break;
+      case 'jira_update_issue':
+        result = await jiraUpdateIssue({
+          issue_key: a.issue_key,
+          summary: a.summary,
+          description: a.description,
+          fields: a.fields,
+        });
+        break;
+      case 'jira_get_editable_fields':
+        result = await jiraGetEditableFields({
+          issue_key: a.issue_key,
+          search: a.search,
+        });
+        break;
       case 'docs_search':
         result = await docsSearch({ query: a.query, limit: a.limit });
         break;
@@ -328,6 +401,12 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         break;
       case 'code_get_file':
         result = await codeGetFile({ path: a.path, ref: a.ref });
+        break;
+      case 'mfe_code_search':
+        result = await codeSearch({ query: a.query, path: a.path, extension: a.extension, limit: a.limit, repo: config.github.mfeRepo });
+        break;
+      case 'mfe_code_get_file':
+        result = await codeGetFile({ path: a.path, ref: a.ref, repo: config.github.mfeRepo });
         break;
       case 'gdocs_read':
         result = await gdocsRead({ document_id: a.document_id });

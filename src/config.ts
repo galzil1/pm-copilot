@@ -12,6 +12,7 @@ export const config = {
     url: process.env.GITHUB_ENTERPRISE_URL || 'https://github.jfrog.info',
     token: process.env.GITHUB_ENTERPRISE_TOKEN || '',
     repo: process.env.ARTIFACTORY_REPO || 'JFROG/artifactory-service',
+    mfeRepo: process.env.ARTIFACTORY_MFE_REPO || 'JFROG/artifactory-mfe',
   },
   google: {
     clientId: process.env.GOOGLE_CLIENT_ID || '',

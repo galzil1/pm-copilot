@@ -19,11 +19,13 @@ export async function codeSearch(args: {
   path?: string;
   extension?: string;
   limit?: number;
+  repo?: string;
 }): Promise<string> {
   const client = createClient();
   const limit = args.limit || 15;
+  const repo = args.repo || config.github.repo;
 
-  let searchQuery = `${args.query} repo:${config.github.repo}`;
+  let searchQuery = `${args.query} repo:${repo}`;
   if (args.path) searchQuery += ` path:${args.path}`;
   if (args.extension) searchQuery += ` extension:${args.extension}`;
 
@@ -40,7 +42,7 @@ export async function codeSearch(args: {
 
     const items = response.data.items || [];
     if (items.length === 0) {
-      return `No code results found for: "${args.query}" in ${config.github.repo}`;
+      return `No code results found for: "${args.query}" in ${repo}`;
     }
 
     const header = `Found ${response.data.total_count} result(s) (showing ${items.length}) for "${args.query}":\n\n`;
@@ -68,9 +70,11 @@ export async function codeSearch(args: {
 export async function codeGetFile(args: {
   path: string;
   ref?: string;
+  repo?: string;
 }): Promise<string> {
   const client = createClient();
-  const [owner, repo] = config.github.repo.split('/');
+  const repoFull = args.repo || config.github.repo;
+  const [owner, repo] = repoFull.split('/');
 
   try {
     const response = await client.get(`/repos/${owner}/${repo}/contents/${args.path}`, {
@@ -107,7 +111,7 @@ export async function codeGetFile(args: {
     return `Unsupported content type: ${data.type}`;
   } catch (error: any) {
     if (error.response?.status === 404) {
-      return `File not found: ${args.path} in ${config.github.repo}`;
+      return `File not found: ${args.path} in ${repoFull}`;
     }
     return `Error fetching file: ${error.message || error}`;
   }
