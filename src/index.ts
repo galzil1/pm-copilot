@@ -12,6 +12,7 @@ import {
   slackGetThread,
   slackSearchMessages,
   slackPostMessage,
+  slackGetUserProfile,
 } from './tools/slack';
 
 import {
@@ -83,6 +84,17 @@ const TOOLS = [
         limit: { type: 'number', description: 'Max results to return (default 20)' },
       },
       required: ['query'],
+    },
+  },
+  {
+    name: 'slack_get_user_profile',
+    description: 'Look up a Slack user by name or email and return their full profile: title, department, division, phone, timezone, custom fields, and more.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        name: { type: 'string', description: 'Full or partial name to search for (e.g. "Gal Zilberman")' },
+        email: { type: 'string', description: 'Email address for exact lookup (e.g. "galzi@jfrog.com")' },
+      },
     },
   },
   {
@@ -349,6 +361,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         break;
       case 'slack_search_messages':
         result = await slackSearchMessages({ query: a.query, limit: a.limit });
+        break;
+      case 'slack_get_user_profile':
+        result = await slackGetUserProfile({ name: a.name, email: a.email });
         break;
       case 'slack_post_message':
         result = await slackPostMessage({ channel: a.channel, text: a.text, thread_ts: a.thread_ts });

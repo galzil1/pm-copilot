@@ -10,7 +10,7 @@
  * Or create a .env file and use dotenv, or pass them from your MCP config.
  */
 
-import { slackGetMyMentions, slackGetThread, slackSearchMessages, slackPostMessage } from '../src/tools/slack';
+import { slackGetMyMentions, slackGetThread, slackSearchMessages, slackPostMessage, slackGetUserProfile } from '../src/tools/slack';
 import { jiraSearchIssues, jiraGetIssue, jiraGetIssueComments, jiraCreateIssue, jiraUpdateIssue, jiraGetEditableFields } from '../src/tools/jira';
 import { docsSearch, docsGetPage } from '../src/tools/docs';
 import { codeSearch, codeGetFile } from '../src/tools/github';
@@ -58,6 +58,52 @@ describeSlack('Slack Tools', () => {
 
   test('slack_post_message is callable (dry-run check only)', () => {
     expect(typeof slackPostMessage).toBe('function');
+  });
+
+  test('slack_get_user_profile finds a user by name', async () => {
+    const result = await slackGetUserProfile({ name: 'Gal Zilberman' });
+    expectSuccess(result);
+    expect(result).toMatch(/Name:/);
+    expect(result).toMatch(/Title:/);
+  });
+
+  test('slack_get_user_profile returns custom profile fields (department, division, etc.)', async () => {
+    const result = await slackGetUserProfile({ name: 'Gal Zilberman' });
+    expectSuccess(result);
+    expect(result).toContain('**Department:**');
+    expect(result).toContain('**Division:**');
+    expect(result).toContain('**City:**');
+  });
+
+  test('slack_get_user_profile resolves user-type fields (manager) to names', async () => {
+    const result = await slackGetUserProfile({ name: 'Gal Zilberman' });
+    expectSuccess(result);
+    expect(result).toContain('**Manager:**');
+    expect(result).not.toMatch(/\*\*Manager:\*\* U[A-Z0-9]+$/m);
+  });
+
+  test('slack_get_user_profile finds a user by email', async () => {
+    const result = await slackGetUserProfile({ email: 'michall@jfrog.com' });
+    expectSuccess(result);
+    expect(result).toMatch(/Name:/);
+    expect(result).toContain('michall@jfrog.com');
+  });
+
+  test('slack_get_user_profile returns error when no args provided', async () => {
+    const result = await slackGetUserProfile({});
+    expect(result).toContain('Provide at least one');
+  });
+
+  test('slack_get_user_profile handles non-existent user gracefully', async () => {
+    const result = await slackGetUserProfile({ name: 'xyznonexistentuser98765' });
+    expect(result).toBeDefined();
+    expect(result).toMatch(/No user found/i);
+  });
+
+  test('slack_get_user_profile handles non-existent email gracefully', async () => {
+    const result = await slackGetUserProfile({ email: 'nonexistent-user-xyz@fake-domain-12345.com' });
+    expect(result).toBeDefined();
+    expect(result).toMatch(/No user found/i);
   });
 });
 
@@ -266,15 +312,56 @@ describeGoogle('Google Workspace Tools (live)', () => {
   });
 });
 
+// ─── Coralogix (remote MCP server) ───────────────────────────
+
+describe('Coralogix Integration', () => {
+  test('coralogix-server is configured in mcp.json', () => {
+    const fs = require('fs');
+    const path = require('path');
+    const mcpPath = path.resolve(__dirname, '../../.cursor/mcp.json');
+    if (!fs.existsSync(mcpPath)) {
+      console.log('  Coralogix: SKIPPED (no .cursor/mcp.json found at workspace root)');
+      return;
+    }
+    const mcpConfig = JSON.parse(fs.readFileSync(mcpPath, 'utf-8'));
+    const coralogix = mcpConfig.mcpServers?.['coralogix-server'];
+    expect(coralogix).toBeDefined();
+    expect(coralogix.url).toMatch(/coralogix/);
+    expect(coralogix.headers?.Authorization).toBeDefined();
+  });
+
+  test('coralogix-server URL points to a valid MCP endpoint', () => {
+    const fs = require('fs');
+    const path = require('path');
+    const mcpPath = path.resolve(__dirname, '../../.cursor/mcp.json');
+    if (!fs.existsSync(mcpPath)) return;
+    const mcpConfig = JSON.parse(fs.readFileSync(mcpPath, 'utf-8'));
+    const url = mcpConfig.mcpServers?.['coralogix-server']?.url || '';
+    expect(url).toMatch(/^https:\/\/api\.coralogix\.\w+\/mgmt\/api\/v1\/mcp$/);
+  });
+});
+
 // ─── Summary ─────────────────────────────────────────────────
 
 describe('Configuration Check', () => {
   test('reports which integrations are configured', () => {
+    const fs = require('fs');
+    const path = require('path');
+    const mcpPath = path.resolve(__dirname, '../../.cursor/mcp.json');
+    let coralogixConfigured = false;
+    if (fs.existsSync(mcpPath)) {
+      try {
+        const mcpConfig = JSON.parse(fs.readFileSync(mcpPath, 'utf-8'));
+        coralogixConfigured = !!mcpConfig.mcpServers?.['coralogix-server']?.url;
+      } catch {}
+    }
+
     const status = [
       `Slack: ${slackConfigured ? 'configured' : 'SKIPPED (missing tokens)'}`,
       `Jira: ${jiraConfigured ? 'configured' : 'SKIPPED (missing tokens)'}`,
       `GitHub: ${githubConfigured ? 'configured' : 'SKIPPED (missing token)'}`,
       `Google: ${googleConfigured ? 'configured' : 'SKIPPED (missing token)'}`,
+      `Coralogix: ${coralogixConfigured ? 'configured (remote MCP)' : 'SKIPPED (not in mcp.json)'}`,
       `Docs: always runs (no credentials needed)`,
     ];
     console.log('\n  Integration status:\n  ' + status.join('\n  ') + '\n');

@@ -1,6 +1,6 @@
 # PM Copilot
 
-MCP server that gives Cursor's AI access to Slack, Jira, JFrog documentation, the Artifactory codebase, and Google Workspace. Designed for JFrog Artifactory PMs to quickly draft informed responses to stakeholder inquiries.
+MCP server that gives Cursor's AI access to Slack, Jira, JFrog documentation, the Artifactory codebase, Google Workspace, and Coralogix observability. Designed for JFrog Artifactory PMs to quickly draft informed responses to stakeholder inquiries.
 
 ## Supported Use Cases
 
@@ -10,6 +10,7 @@ MCP server that gives Cursor's AI access to Slack, Jira, JFrog documentation, th
 - **Summarizing Slack discussions** — Read and summarize channel conversations or threads to quickly catch up on discussions you missed.
 - **Reading Google Workspace documents** — Access Google Docs, Sheets, Slides, and Drive files directly from Cursor to reference one-pagers, specs, and spreadsheets.
 - **Checking your calendar** — View upcoming meetings and events to find relevant context for discussions.
+- **Investigating production issues** — Query Coralogix logs, traces, metrics, alerts, and incidents to diagnose problems and understand system behavior in real time.
 - **Drafting with your voice** — Each user configures a personal voice/tone rule so responses match their natural communication style.
 
 ## How It Works
@@ -20,17 +21,20 @@ MCP server that gives Cursor's AI access to Slack, Jira, JFrog documentation, th
 4. Claude drafts a response in your voice/tone (defined by your personal Cursor rule)
 5. You review, refine, and post via the `slack_post_message` tool or copy-paste
 
-## Available Tools (22)
+## Available Tools
 
-### Slack
+### PM Copilot (23 tools)
+
+#### Slack
 | Tool | Description |
 |------|-------------|
 | `slack_get_my_mentions` | Fetch recent Slack messages where you're mentioned |
 | `slack_get_thread` | Get full conversation thread by channel + timestamp |
 | `slack_search_messages` | Search Slack messages (supports Slack search syntax) |
+| `slack_get_user_profile` | Look up a user by name or email — returns title, department, division, manager, city, and all custom profile fields |
 | `slack_post_message` | Post a message to a channel/thread (requires your approval) |
 
-### Jira
+#### Jira
 | Tool | Description |
 |------|-------------|
 | `jira_search_issues` | Search Jira by keyword or JQL |
@@ -40,25 +44,25 @@ MCP server that gives Cursor's AI access to Slack, Jira, JFrog documentation, th
 | `jira_update_issue` | Update an existing issue's summary, description, or any custom field by ID |
 | `jira_get_editable_fields` | Discover editable fields on an issue with their IDs, types, and allowed values |
 
-### JFrog Documentation
+#### JFrog Documentation
 | Tool | Description |
 |------|-------------|
 | `docs_search` | Search JFrog official documentation across both [docs.jfrog.com](https://docs.jfrog.com/) (new) and [jfrog.com/help](https://jfrog.com/help/r/jfrog-artifactory-documentation) (legacy) |
 | `docs_get_page` | Fetch and read a specific docs page (accepts URLs from either site, or a relative slug) |
 
-### Artifactory Codebase (Backend — `artifactory-service`)
+#### Artifactory Codebase (Backend — `artifactory-service`)
 | Tool | Description |
 |------|-------------|
 | `code_search` | Search the Artifactory backend codebase (Java, Groovy, configs) |
 | `code_get_file` | Fetch a file or directory listing from the backend repo |
 
-### Artifactory MFE (Frontend — `artifactory-mfe`)
+#### Artifactory MFE (Frontend — `artifactory-mfe`)
 | Tool | Description |
 |------|-------------|
 | `mfe_code_search` | Search the Artifactory MFE frontend codebase (Vue, TypeScript, components) |
 | `mfe_code_get_file` | Fetch a file or directory listing from the MFE repo |
 
-### Google Workspace
+#### Google Workspace
 | Tool | Description |
 |------|-------------|
 | `gdocs_read` | Read a Google Doc by URL or document ID |
@@ -67,6 +71,21 @@ MCP server that gives Cursor's AI access to Slack, Jira, JFrog documentation, th
 | `gdrive_search` | Search Google Drive by filename or content |
 | `gdrive_get_file` | Read any file from Drive by URL or file ID |
 | `gcal_get_events` | Get upcoming or recent calendar events |
+
+### Coralogix (30 tools — separate MCP server)
+
+The Coralogix integration connects via a remote MCP endpoint (not part of the pm-copilot Node process). It provides observability tools for logs, traces, metrics, alerts, incidents, and parsing rules.
+
+| Category | Tools |
+|----------|-------|
+| **Logs & Traces** | `get_logs`, `get_traces`, `get_schemas` |
+| **Metrics** | `metrics__list`, `metrics__metric_details`, `metrics__range_query` |
+| **Alerts** | `list_alerts`, `get_alert`, `create_alert`, `update_alert`, `delete_alert`, `get_alert_event_details` |
+| **Incidents** | `list_incidents`, `get_incident_details` |
+| **Parsing Rules** | `list_parsing_rules`, `get_parsing_rule`, `create_parsing_rule`, `update_parsing_rule`, `delete_parsing_rule` |
+| **Code Generation** | `generate_terraform_alert`, `generate_terraform_parsing_rule`, `generate_kubernetes_alert`, `generate_kubernetes_parsing_rule`, `generate_openapi_alert`, `generate_openapi_parsing_rule` |
+| **Documentation** | `read_dataprime_intro_docs`, `read_metrics_guidelines`, `read_rum_log_intro_docs`, `read_rum_sdk_docs`, `alert_definition_creation_docs` |
+| **Utilities** | `get_datetime` |
 
 ## Setup for New Team Members
 
@@ -98,10 +117,12 @@ A Slack app named **PM Copilot** already exists in the JFrog workspace. You do *
 4. For the **User OAuth Token** (`xoxp-...`), you need to reinstall the app to your workspace under your own authorization. This gives you a personal user token that searches Slack as *you*.
 
 **Bot Token Scopes** (already configured):
-`channels:history`, `channels:read`, `chat:write`, `groups:history`, `groups:read`, `im:history`, `im:read`, `mpim:history`, `mpim:read`, `users:read`
+`channels:history`, `channels:read`, `chat:write`, `groups:history`, `groups:read`, `im:history`, `im:read`, `mpim:history`, `mpim:read`, `users:read`, `users:read.email`
 
 **User Token Scopes** (already configured):
-`search:read`, `channels:history`, `groups:history`
+`search:read`, `channels:history`, `groups:history`, `users.profile:read`
+
+> **Note:** The `users.profile:read` scope on the **user token** is required for `slack_get_user_profile` to return custom profile fields (department, division, manager, city, etc.). The bot token alone cannot access these fields.
 
 ### 3. Jira API Token (per user)
 
@@ -132,7 +153,17 @@ node dist/google-auth.js --client-id YOUR_CLIENT_ID --client-secret YOUR_CLIENT_
 
 Follow the browser prompt to authorize, then copy the refresh token.
 
-### 6. Configure Cursor MCP
+### 6. Coralogix (per user)
+
+Coralogix is a remote MCP server — no local code is needed. You just need an API key.
+
+1. Log in to [Coralogix](https://dashboard.coralogix.us/) and go to **Settings > API Keys**
+2. Create or copy an API key with read access to logs, traces, metrics, and alerts
+3. Add the `coralogix-server` entry to your `mcp.json` (see example below)
+
+The Coralogix MCP endpoint is region-specific. Use the URL that matches your Coralogix domain (e.g., `api.coralogix.us` for US).
+
+### 7. Configure Cursor MCP
 
 Create or edit `.cursor/mcp.json` in your **workspace root** (not inside pm-copilot):
 
@@ -156,6 +187,12 @@ Create or edit `.cursor/mcp.json` in your **workspace root** (not inside pm-copi
         "GOOGLE_CLIENT_SECRET": "your-google-client-secret",
         "GOOGLE_REFRESH_TOKEN": "your-google-refresh-token"
       }
+    },
+    "coralogix-server": {
+      "url": "https://api.coralogix.us/mgmt/api/v1/mcp",
+      "headers": {
+        "Authorization": "Bearer your-coralogix-api-key"
+      }
     }
   }
 }
@@ -163,7 +200,7 @@ Create or edit `.cursor/mcp.json` in your **workspace root** (not inside pm-copi
 
 Restart Cursor (or reload the window) for the MCP server to be picked up.
 
-### 7. Set Up Your Voice & Tone
+### 8. Set Up Your Voice & Tone
 
 Each team member should create their own voice/tone rule so Claude drafts in *their* style.
 
@@ -186,6 +223,7 @@ The rule is applied per-user and is **not** checked into git.
 | Jira API Token | — | Yes |
 | GitHub PAT | — | Yes |
 | Google OAuth Credentials | — | Yes |
+| Coralogix API Key | — | Yes |
 | Voice & Tone rule | Template in repo | Customized per person |
 
 ## Example Usage in Cursor Chat
@@ -202,6 +240,14 @@ Claude will:
 > "Looks good, please post it in the thread"
 
 Claude will use `slack_post_message` to post the approved response.
+
+> "We're seeing 500 errors on the replication endpoint. Can you check Coralogix logs for the last hour?"
+
+Claude will:
+1. Use `get_schemas` to understand the log structure
+2. Use `get_logs` with a Dataprime query filtering for 500 status codes on replication endpoints
+3. Use `list_incidents` to check if any active incidents correlate
+4. Summarize findings with log samples and timestamps
 
 ## Development
 

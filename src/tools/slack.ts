@@ -180,6 +180,138 @@ export async function slackSearchMessages(args: {
   }
 }
 
+export async function slackGetUserProfile(args: {
+  name?: string;
+  email?: string;
+}): Promise<string> {
+  if (!args.name && !args.email) {
+    return 'Error: Provide at least one of "name" or "email" to look up a user.';
+  }
+
+  try {
+    let userId: string | undefined;
+    let userObj: any;
+
+    if (args.email) {
+      try {
+        const lookup = await botClient.users.lookupByEmail({ email: args.email });
+        userObj = lookup.user;
+        userId = userObj?.id;
+      } catch {
+        return `No user found with email "${args.email}".`;
+      }
+    }
+
+    if (!userId && args.name) {
+      const query = args.name.toLowerCase();
+      let cursor: string | undefined;
+      do {
+        const page: any = await botClient.users.list({ limit: 200, cursor });
+        for (const member of page.members || []) {
+          const real = (member.real_name || '').toLowerCase();
+          const display = (member.profile?.display_name || '').toLowerCase();
+          if (real.includes(query) || display.includes(query)) {
+            userObj = member;
+            userId = member.id;
+            break;
+          }
+        }
+        cursor = page.response_metadata?.next_cursor;
+      } while (!userId && cursor);
+
+      if (!userId) {
+        return `No user found matching name "${args.name}".`;
+      }
+    }
+
+    const clients = [botClient, ...(config.slack.userToken ? [userClient] : [])];
+
+    let info: any = null;
+    for (const client of clients) {
+      try {
+        info = await client.users.info({ user: userId! });
+        if (info?.user) break;
+      } catch { continue; }
+    }
+    if (!info?.user) return `Error: Could not fetch profile for user ${userId}.`;
+
+    const u = info.user as any;
+    let p = u.profile || {};
+
+    for (const client of clients) {
+      try {
+        const full = await client.users.profile.get({ user: userId! }) as any;
+        if (full?.profile) { p = { ...p, ...full.profile }; break; }
+      } catch { continue; }
+    }
+
+    let teamProfile: any = null;
+    for (const client of clients) {
+      try {
+        teamProfile = await client.team.profile.get({});
+        if (teamProfile) break;
+      } catch { continue; }
+    }
+
+    const fieldLabelMap = new Map<string, string>();
+    const fieldTypeMap = new Map<string, string>();
+    if (teamProfile) {
+      for (const f of (teamProfile as any).profile?.fields || []) {
+        if (f.id && f.label) fieldLabelMap.set(f.id, f.label);
+        if (f.id && f.type) fieldTypeMap.set(f.id, f.type);
+      }
+    }
+
+    const fields: string[] = [
+      `**Name:** ${u.real_name || p.real_name || 'N/A'}`,
+      `**Display Name:** ${p.display_name || 'N/A'}`,
+      `**Title:** ${p.title || 'N/A'}`,
+      `**Email:** ${p.email || 'N/A'}`,
+      `**Phone:** ${p.phone || 'N/A'}`,
+      `**Status:** ${p.status_emoji || ''} ${p.status_text || ''}`.trim(),
+      `**Timezone:** ${u.tz_label || u.tz || 'N/A'}`,
+      `**Is Admin:** ${u.is_admin ? 'Yes' : 'No'}`,
+      `**Is Bot:** ${u.is_bot ? 'Yes' : 'No'}`,
+    ];
+
+    if (p.fields && typeof p.fields === 'object') {
+      const userFieldsToResolve: { label: string; userId: string }[] = [];
+
+      for (const [fieldId, fieldData] of Object.entries(p.fields) as [string, any][]) {
+        const value = fieldData?.value;
+        if (!value) continue;
+        const label = fieldLabelMap.get(fieldId) || fieldData?.label || fieldId;
+        const type = fieldTypeMap.get(fieldId);
+
+        if (type === 'user' && /^U[A-Z0-9]+$/.test(value)) {
+          userFieldsToResolve.push({ label, userId: value });
+        } else {
+          fields.push(`**${label}:** ${value}`);
+        }
+      }
+
+      if (userFieldsToResolve.length > 0) {
+        const resolved = await Promise.all(
+          userFieldsToResolve.map(async ({ label, userId: uid }) => {
+            const name = await resolveUserName(uid);
+            return `**${label}:** ${name}`;
+          })
+        );
+        fields.push(...resolved);
+      }
+    }
+
+    if (u.enterprise_user) {
+      const eu = u.enterprise_user;
+      if (eu.enterprise_name) fields.push(`**Enterprise:** ${eu.enterprise_name}`);
+    }
+
+    return fields.join('\n');
+  } catch (error: any) {
+    return `Error fetching user profile: ${error.message || error}`;
+  }
+}
+
 export async function slackPostMessage(args: {
   channel: string;
   text: string;
