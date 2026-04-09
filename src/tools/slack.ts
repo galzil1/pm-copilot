@@ -101,12 +101,24 @@ export async function slackGetMyMentions(args: {
   }
 }
 
+function slackApiErrorMessage(error: unknown): string {
+  const e = error as { data?: { error?: string }; message?: string };
+  return e?.data?.error || e?.message || String(error);
+}
+
 export async function slackGetThread(args: {
   channel: string;
   thread_ts: string;
   limit?: number;
 }): Promise<string> {
-  const clients = [botClient, ...(config.slack.userToken ? [userClient] : [])];
+  // IMs (D…) and MPIMs (G…) are not visible to the bot unless it was invited; user token is required.
+  const preferUserFirst =
+    (args.channel.startsWith('D') || args.channel.startsWith('G')) && config.slack.userToken;
+  const clients = preferUserFirst
+    ? [userClient, botClient]
+    : [botClient, ...(config.slack.userToken ? [userClient] : [])];
+
+  let lastError = '';
 
   for (const client of clients) {
     try {
@@ -125,12 +137,17 @@ export async function slackGetThread(args: {
 
       const messages = await resolveUserNames(raw);
       return `Thread (${messages.length} messages):\n\n${formatMessages(messages)}`;
-    } catch {
+    } catch (error) {
+      lastError = slackApiErrorMessage(error);
       continue;
     }
   }
 
-  return `Error fetching thread: Could not access channel ${args.channel}. The bot may need to be invited to the channel.`;
+  return (
+    `Error fetching thread: ${lastError || 'unknown error'}. ` +
+    `Channel ${args.channel}. ` +
+    `For public channels invite the bot; for DMs/MPIMs the user token needs im:history / mpim:history (and a fresh OAuth after adding scopes).`
+  );
 }
 
 export async function slackSearchMessages(args: {
