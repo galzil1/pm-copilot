@@ -100,8 +100,17 @@ The Coralogix integration connects via a remote MCP endpoint (not part of the pm
 git clone https://github.com/galzil1/pm-copilot.git
 cd pm-copilot
 npm install
-npm run build
 ```
+
+`npm install` runs **`postinstall`**, which compiles TypeScript to `dist/`. You need `dist/index.js` to exist before Cursor can start the MCP server (the entry in `mcp.json` points at that file).
+
+To verify the server locally:
+
+```bash
+npm run smoke
+```
+
+You should see `tools count: 23` and `smoke ok`.
 
 ### 2. Slack — Reuse the Existing App
 
@@ -167,11 +176,13 @@ The Coralogix MCP endpoint is region-specific. Use the URL that matches your Cor
 
 Create or edit `.cursor/mcp.json` in your **workspace root** (not inside pm-copilot):
 
+Use the **absolute path** to the `node` binary for `command` (not just `"node"`). Cursor is often started from the Dock and does not load your shell profile, so `node` may be missing from `PATH` and you will see **`spawn node ENOENT`** in MCP logs. Run `which node` in Terminal and paste that path.
+
 ```json
 {
   "mcpServers": {
     "pm-copilot": {
-      "command": "node",
+      "command": "/opt/homebrew/bin/node",
       "args": ["/absolute/path/to/pm-copilot/dist/index.js"],
       "env": {
         "SLACK_BOT_TOKEN": "xoxb-shared-bot-token",
@@ -248,6 +259,16 @@ Claude will:
 2. Use `get_logs` with a Dataprime query filtering for 500 status codes on replication endpoints
 3. Use `list_incidents` to check if any active incidents correlate
 4. Summarize findings with log samples and timestamps
+
+## Troubleshooting
+
+| Symptom | What to do |
+|--------|------------|
+| Cursor shows **no tools** for pm-copilot, or the server fails on start | Ensure `dist/index.js` exists: run `cd /path/to/pm-copilot && npm install` (this runs `postinstall` and builds `dist/`). Confirm the `args` path in `mcp.json` matches that clone. |
+| `Cannot find module` or `ENOENT` for `dist/index.js` | Same as above — you never ran `npm install` in the pm-copilot directory, or the path in `mcp.json` is wrong. |
+| Tools still missing after fixing `dist/` | Restart Cursor or **Developer: Reload Window**. |
+| `npm install` did not create `dist/` | Your npm may have **ignore-scripts** enabled. Run `npm run build` manually once, or reinstall with scripts allowed. |
+| Cursor log shows **`spawn node ENOENT`** | The GUI app does not see the same `PATH` as your terminal (nvm/fnm/Homebrew). Set **`command`** to the full path to Node, e.g. run `which node` in Terminal and use that value (on Apple Silicon Homebrew it is often `/opt/homebrew/bin/node`). |
 
 ## Development
 
